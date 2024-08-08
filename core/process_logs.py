@@ -47,10 +47,7 @@ def process_logs(file_path):
     df = pd.DataFrame(data)
     return df
 
-# Caminho para o arquivo de log
-log_file_path = 'logs\LogsGET.txt'
-
-# Processar os logs e obter o DataFrame
+log_file_path = '../logs/LogsGET.txt'
 df = process_logs(log_file_path)
 
 # Configuração do banco de dados PostgreSQL

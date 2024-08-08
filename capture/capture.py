@@ -4,7 +4,7 @@ from scapy.all import sniff, IP, Ether, TCP, ICMP, DNS, DNSQR
 from threading import Thread
 
 # Configurar o logging
-logging.basicConfig(filename='logs\LogsGET.txt', level=logging.INFO, format='%(asctime)s - %(message)s')
+logging.basicConfig(filename='../logs/LogsGET.txt', level=logging.INFO, format='%(asctime)s - %(message)s')
 
 packet_log = [] 
 

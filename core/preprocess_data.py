@@ -41,4 +41,4 @@ df_preprocessed = preprocess_data(df)
 print(df_preprocessed.head())
 
 # Salvar o DataFrame pré-processado em um arquivo CSV para uso posterior
-df_preprocessed.to_csv('preprocessed_data.csv', index=False)
+df_preprocessed.to_csv('tables/preprocessed_data.csv', index=False)
