@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 # Carregar os dados pré-processados
-df_preprocessed = pd.read_csv('preprocessed_data.csv')
+df_preprocessed = pd.read_csv('tables/preprocessed_data.csv')
 
 # Preparar os dados para PyTorch
 features = df_preprocessed.drop(columns=['Intrusion']).values
@@ -61,4 +61,4 @@ with torch.no_grad():
     print(f'Accuracy: {accuracy:.4f}')
 
 # Salvar o modelo treinado
-torch.save(model.state_dict(), 'anomaly_detection_model.pth')
+torch.save(model.state_dict(), 'models/anomaly_detection_model.pth')

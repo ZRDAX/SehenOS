@@ -19,19 +19,19 @@ def preprocess_data(df):
     df = df.fillna('unknown')
     
     le_mac_src = LabelEncoder()
-    df['MAC_src'] = le_mac_src.fit_transform(df['MAC_src'])
+    df['mac_src'] = le_mac_src.fit_transform(df['mac_src'])
     
     le_mac_dst = LabelEncoder()
-    df['MAC_dst'] = le_mac_dst.fit_transform(df['MAC_dst'])
+    df['mac_dst'] = le_mac_dst.fit_transform(df['mac_dst'])
     
     le_ip_src = LabelEncoder()
-    df['IP_src'] = le_ip_src.fit_transform(df['IP_src'])
+    df['ip_src'] = le_ip_src.fit_transform(df['ip_src'])
     
     le_ip_dst = LabelEncoder()
-    df['IP_dst'] = le_ip_dst.fit_transform(df['IP_dst'])
+    df['ip_dst'] = le_ip_dst.fit_transform(df['ip_dst'])
     
     le_fqdn = LabelEncoder()
-    df['FQDN'] = le_fqdn.fit_transform(df['FQDN'])
+    df['fqdn'] = le_fqdn.fit_transform(df['fqdn'])
     
     return df
 
