@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: sehenos
       POSTGRES_PASSWORD: piswos
-      POSTGRES_DB: swiredb
+      POSTGRES_DB: sehenos_db
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
