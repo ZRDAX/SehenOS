@@ -9,7 +9,7 @@ def connect_db():
         conn = psycopg2.connect(
             dbname="sehenos_db",
             user="sehenos",
-            password="yourpassword",
+            password="piswos",
             host="db"  # Nome do serviço no Docker Compose
         )
         return conn
