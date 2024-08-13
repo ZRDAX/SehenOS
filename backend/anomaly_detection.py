@@ -60,7 +60,7 @@ def main():
         model.fit(X_train)
         y_pred = model.predict(X_test)
         
-        # Análise com Rede Neural (opcional)
+        # Análise com Rede Neural
         nn_model = Sequential([
             Dense(64, input_dim=X_train.shape[1], activation='relu'),
             Dense(32, activation='relu'),
