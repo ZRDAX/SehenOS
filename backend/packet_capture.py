@@ -37,7 +37,7 @@ def insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname):
         """, (src_ip, src_hostname, dst_ip, dst_hostname))
         conn.commit()
         cur.close()
-    except Exception as e:
+    except psycopg2.Error as e:
         print(f"/problema-atual/ Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
 
 # Função principal de callback para a captura de pacotes
