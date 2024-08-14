@@ -12,8 +12,8 @@ def connect_db():
         conn = psycopg2.connect(
             dbname="sehenos_db",
             user="sehenos",
-            password="yourpassword",
-            host="db"  # Nome do serviço no Docker Compose
+            password="piswos",
+            host="localhost"  # Nome do serviço no Docker Compose
         )
         return conn
     except Exception as e:

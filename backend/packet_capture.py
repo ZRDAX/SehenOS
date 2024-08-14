@@ -9,7 +9,7 @@ def connect_db():
             dbname="sehenos_db",
             user="sehenos",
             password="piswos",
-            host="db"  # Nome do serviço no Docker Compose
+            host="localhost"  # Nome do serviço no Docker Compose
         )
         return conn
     except Exception as e:
@@ -38,7 +38,7 @@ def insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname):
         conn.commit()
         cur.close()
     except Exception as e:
-        print(f"Erro ao inserir dados no banco de dados: {e}")
+        print(f"/problema-atual/ Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
 
 # Função principal de callback para a captura de pacotes
 def packet_callback(packet):
