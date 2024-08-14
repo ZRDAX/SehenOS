@@ -10,7 +10,7 @@ def connect_db():
             dbname="sehenos_db",
             user="sehenos",
             password="piswos",
-            host="db"  # Nome do serviço no Docker Compose
+            host="localhost"  # Nome do serviço no Docker Compose
         )
         return conn
     except Exception as e:
