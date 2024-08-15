@@ -1,12 +1,11 @@
-version: '3.8'
 services:
   db:
     image: postgres:latest
     container_name: sehenos_db
     environment:
+      POSTGRES_DB: sehenos_db
       POSTGRES_USER: sehenos
       POSTGRES_PASSWORD: piswos
-      POSTGRES_DB: sehenos_db
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -14,34 +13,40 @@ services:
 
   app:
     build: ./backend
-    depends_on:
-      - db
+    container_name: sehenos_app
+    environment:
+      - FLASK_ENV=development
     networks:
       - sehenos_network
+    # ports:
+    #   - "5000:5000"
+    # depends_on:
+    #   - db
 
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "3000:80"
-  #   depends_on:
-  #     - api
-  #   networks:
-  #     - sehenos_network
+  web:
+    build: ./frontend
+    container_name: sehenos_web
+    networks:
+      - sehenos_network
+    # ports:
+    #   - "3000:3000"
 
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - frontend
-  #   networks:
-  #     - sehenos_network
+  nginx:
+    image: nginx:latest
+    container_name: sehenos_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - web
+      - app
+    networks:
+      - sehenos_network
 
 networks:
   sehenos_network:
     drive: bridge
 
 volumes:
-  db_data:
+  postgres_data:
