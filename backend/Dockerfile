@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
+RUN pip3 update
 RUN pip3 install -r h5py TensorFlow
 COPY . .
 CMD ["python3", "app.py"]
