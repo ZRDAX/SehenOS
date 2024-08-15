@@ -11,11 +11,18 @@ RUN apt-get update && apt-get install -y \
         apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY requirements.txt .
+
 RUN pip install -r requirements.txt
 RUN pip install --update pip
 RUN pip install h5py TensorFlow
+
 COPY . .
+
+# Expor a porta que o Flask usa
+EXPOSE 5000
+
 CMD ["python3", "app.py"]
 #CMD ["python3", "packet_capture.py"]
 
