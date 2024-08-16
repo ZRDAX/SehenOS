@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: sehenos
       POSTGRES_PASSWORD: piswos
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - sehenos_network
 
@@ -18,18 +18,14 @@ services:
       - FLASK_ENV=development
     networks:
       - sehenos_network
-    # ports:
-    #   - "5000:5000"
-    # depends_on:
-    #   - db
+    depends_on:
+      - db
 
   web:
     build: ./frontend
     container_name: sehenos_web
     networks:
       - sehenos_network
-    # ports:
-    #   - "3000:3000"
 
   nginx:
     image: nginx:latest
@@ -47,6 +43,7 @@ services:
 networks:
   sehenos_network:
     drive: bridge
+    name: sehenos_network
 
 volumes:
   postgres_data:

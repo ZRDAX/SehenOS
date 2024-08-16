@@ -1,3 +1,4 @@
+#backend/packet_capture.py
 from scapy.all import sniff, IP
 import psycopg2
 import re
@@ -9,7 +10,8 @@ def connect_db():
             dbname="sehenos_db",
             user="sehenos",
             password="piswos",
-            host="localhost"  # Nome do serviço no Docker Compose
+            host="sehenos_db",  # Nome do serviço no Docker Compose
+            port="5432"
         )
         print("Connect to db: ", conn.get_dsn_parameters())
         print('Conexão estabelecida com sucesso.')
@@ -46,6 +48,7 @@ def insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname):
         print(f"Dados inseridos: src_ip={src_ip}, src_hostname={src_hostname}, dst_ip={dst_ip}, dst_hostname={dst_hostname}")
     except psycopg2.Error as e:
         print(f" /problema-atual/ Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
+        print(f"Detalhes da exceção: {str(e)}")
         conn.rollback()
 
 # Função principal de callback para a captura de pacotes
