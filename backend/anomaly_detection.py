@@ -1,3 +1,4 @@
+#backend/anomaly_detection.py
 import pandas as pd
 import psycopg2
 from sklearn.preprocessing import LabelEncoder
@@ -13,7 +14,8 @@ def connect_db():
             dbname="sehenos_db",
             user="sehenos",
             password="piswos",
-            host="localhost"  # Nome do serviço no Docker Compose
+            host="sehenos_db",  # Nome do serviço no Docker Compose
+            port="5432"  # Nome do serviço no Docker Compose
         )
         return conn
     except Exception as e:
