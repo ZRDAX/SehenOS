@@ -8,11 +8,11 @@ app = Flask(__name__)
 def connect_db():
     try:
         conn = psycopg2.connect(
-            dbname="sehenos_db",
-            user="sehenos",
+            dbname="sehenos-db",
+            user="cypher",
             password="piswos",
-            host="sehenos_db",  # Nome do serviço no Docker Compose
-            port="5432"  # Nome do serviço no Docker Compose
+            host="db",  # Nome do serviço no Docker Compose
+            port="5432"  # porta do postgresql
         )
         return conn
     except Exception as e:

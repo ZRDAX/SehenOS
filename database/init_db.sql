@@ -8,9 +8,9 @@ CREATE TABLE network_traffic (
 );
 
 -- Conceder permissões ao usuário
-GRANT INSERT, SELECT ON TABLE network_traffic TO sehenos;
+GRANT ALL PRIVILEGES ON TABLE network_traffic TO sehenos;
 
 -- Verificar sequência padrão
 ALTER SEQUENCE network_traffic_id_seq OWNED BY network_traffic.id;
-GRANT USAGE, SELECT ON SEQUENCE network_traffic_id_seq TO sehenos;
+GRANT ALL PRIVILEGES ON SEQUENCE network_traffic_id_seq TO sehenos;
 
