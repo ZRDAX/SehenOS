@@ -24,5 +24,5 @@ COPY . .
 # Expor a porta que o Flask usa
 EXPOSE 5000
 
-ENTRYPOINT ["./wait_for_db.sh", "db", "python3", "app.py"]
-
+ENTRYPOINT ["python3", "app.py"]
+#ENTRYPOINT ["./wait_for_db.sh", "db", "python3", "app.py"]

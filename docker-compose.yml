@@ -20,6 +20,7 @@ services:
     container_name: sehenos-app
     environment:
       - FLASK_ENV=development
+      - DB_HOST=db
     depends_on:
       - db
     networks:
