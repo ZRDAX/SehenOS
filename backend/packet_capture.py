@@ -6,11 +6,12 @@ import re
 # Conexão com o banco de dados PostgreSQL
 def connect_db():
     try:
+        print('Tentando conectar ao banco...')
         conn = psycopg2.connect(
-            dbname="sehenos_db",
-            user="sehenos",
+            dbname="sehenos-db",
+            user="cypher",
             password="piswos",
-            host="sehenos_db",  # Nome do serviço no Docker Compose
+            host="db",  # Nome do serviço no Docker Compose
             port="5432"
         )
         print("Connect to db: ", conn.get_dsn_parameters())
