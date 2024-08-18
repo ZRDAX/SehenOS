@@ -1,4 +1,3 @@
-#backend/packet_capture.py
 from scapy.all import sniff, IP
 import psycopg2
 import re
@@ -16,23 +15,19 @@ def connect_db():
         )
         print("Connect to db: ", conn.get_dsn_parameters())
         print('Conexão estabelecida com sucesso.')
+        return conn
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
 
 # Função para extrair IP, hostname e FQDN usando RegEx
 def extract_info(packet):
-    src_ip = packet[0][1].src if packet.haslayer("IP") else None
-    dst_ip = packet[0][1].dst if packet.haslayer("IP") else None
+    src_ip = packet[IP].src if packet.haslayer(IP) else None
+    dst_ip = packet[IP].dst if packet.haslayer(IP) else None
     hostname_regex = r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'  # RegEx simplificada para FQDN
 
-    if src_ip:
-        src_hostname = re.search(hostname_regex, src_ip)
-        src_hostname = src_hostname.group(0) if src_hostname else None
-
-    if dst_ip:
-        dst_hostname = re.search(hostname_regex, dst_ip)
-        dst_hostname = dst_hostname.group(0) if dst_hostname else None
+    src_hostname = re.search(hostname_regex, src_ip).group(0) if src_ip and re.search(hostname_regex, src_ip) else None
+    dst_hostname = re.search(hostname_regex, dst_ip).group(0) if dst_ip and re.search(hostname_regex, dst_ip) else None
 
     return src_ip, src_hostname, dst_ip, dst_hostname
 
@@ -48,7 +43,7 @@ def insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname):
         cur.close()
         print(f"Dados inseridos: src_ip={src_ip}, src_hostname={src_hostname}, dst_ip={dst_ip}, dst_hostname={dst_hostname}")
     except psycopg2.Error as e:
-        print(f" /problema-atual/ Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
+        print(f"Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
         print(f"Detalhes da exceção: {str(e)}")
         conn.rollback()
 
@@ -64,11 +59,15 @@ def start_sniffing():
     global conn
     conn = connect_db()
     if conn:
-        print('Iniciando a captura de pacotes...')
-        sniff(prn=packet_callback, filter="ip", store=0, iface='eth0', promisc=True)
-        conn.close()
+        try:
+            print('Iniciando a captura de pacotes...')
+            sniff(prn=packet_callback, filter="ip", store=0, iface='eth0', promisc=True)
+        except Exception as e:
+            print(f"Erro durante a captura de pacotes: {e}")
+        finally:
+            conn.close()
     else:
-        print('Não foi possivel iniciar a captura de pacotes devido à falha na conexão com o banco de dados.')
+        print('Não foi possível iniciar a captura de pacotes devido à falha na conexão com o banco de dados.')
 
 if __name__ == "__main__":
     start_sniffing()
