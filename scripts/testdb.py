@@ -5,7 +5,7 @@ conn = psycopg2.connect(
     dbname="sehenos-db",
     user="cypher",
     password="piswos",
-    host="db",  # Nome do serviço no Docker Compose
+    host="localhost",  # Nome do serviço no Docker Compose
     port="5432"
 )
 
