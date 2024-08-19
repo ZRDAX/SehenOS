@@ -1,8 +1,11 @@
-#app.py
-from flask import Flask, jsonify
+#backend/app.py
+import os
+from flask import Flask, request, jsonify
+from flask_bcrypt import Bcrypt
 import psycopg2
 
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
 
 # Conexão com o banco de dados PostgreSQL
 def connect_db():
@@ -11,13 +14,39 @@ def connect_db():
             dbname="sehenos-db",
             user="cypher",
             password="piswos",
-            host="db",  # Nome do serviço no Docker Compose
+            host="localhost",  # Nome do serviço no Docker Compose
             port="5432"  # porta do postgresql
         )
         return conn
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
+    
+# Endpoint para autenticação
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    conn = connect_db()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT password FROM users WHERE email = %s;", (email,))
+            result = cur.fetchone()
+            cur.close()
+            conn.close()
+
+            if result and bcrypt.check_password_hash(result[0], password):
+                return jsonify({'message': 'Login bem-sucedido'}), 200
+            else:
+                return jsonify({'message': 'Credenciais inválidas'}), 401
+        except Exception as e:
+            print(f"Erro ao executar a query: {e}")
+            return jsonify({"error": "Erro ao executar a query"}), 500
+    else:
+        return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
 
 # Endpoint para listar os pacotes capturados
 @app.route('/api/packets', methods=['GET'])
@@ -45,22 +74,24 @@ def get_packets():
 def get_anomalies():
     conn = connect_db()
     if conn:
-        df = load_data(conn)  # Use a função load_data do script anterior
-        conn.close()
-        
-        df_processed = preprocess_data(df)
-        X_train, X_test = split_data(df_processed)
-        
-        model = IsolationForest(contamination=0.1, random_state=42)
-        model.fit(X_train)
-        y_pred = model.predict(X_test)
-        
-        anomalies = X_test[y_pred == -1]
-        anomalies_list = anomalies.tolist()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM anomalies;")
+            rows = cur.fetchall()
+        except Exception as e:
+            print(f"Erro ao executar a query: {e}")
+            return jsonify({"error": "Erro ao executar a query"}), 500
+        finally:
+            cur.close()
+            conn.close()
 
-        # Convertendo para JSON
-        anomalies_json = [{"src_ip": row[0], "dst_ip": row[1], "src_hostname": row[2], "dst_hostname": row[3]} for row in anomalies_list]
-        return jsonify(anomalies_json)
+        # Corrigido para usar a lista 'rows'
+        anomalies = [
+            {"id": row[0], "timestamp": row[1], "src_ip": row[2], "src_hostname": row[3],
+            "src_mac": row[4], "dst_ip": row[5], "dst_hostname": row[6], "dst_mac": row[7]}
+            for row in rows
+        ]
+        return jsonify(anomalies)
     else:
         return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
 

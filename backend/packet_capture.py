@@ -1,24 +1,32 @@
+import os
+import pandas as pd
+from sqlalchemy import create_engine, Table, Column, String, MetaData
+from sqlalchemy.orm import sessionmaker
 from scapy.all import sniff, IP
-import psycopg2
 import re
 
-# Conexão com o banco de dados PostgreSQL
+# Conexão com o banco de dados PostgreSQL usando SQLAlchemy
 def connect_db():
     try:
-        print('Tentando conectar ao banco...')
-        conn = psycopg2.connect(
-            dbname="sehenos-db",
-            user="cypher",
-            password="piswos",
-            host="db",  # Nome do serviço no Docker Compose
-            port="5432"
-        )
-        print("Connect to db: ", conn.get_dsn_parameters())
+        # Atualize o host para o nome do serviço no Docker Compose
+        engine = create_engine('postgresql://cypher:piswos@db:5432/sehenos-db')
         print('Conexão estabelecida com sucesso.')
-        return conn
+        return engine
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
+
+# Função para criar a tabela se não existir
+def create_table(engine):
+    metadata = MetaData()
+    network_traffic = Table('network_traffic', metadata,
+        Column('id', String, primary_key=True),
+        Column('src_ip', String),
+        Column('src_hostname', String),
+        Column('dst_ip', String),
+        Column('dst_hostname', String)
+    )
+    metadata.create_all(engine)
 
 # Função para extrair IP, hostname e FQDN usando RegEx
 def extract_info(packet):
@@ -30,42 +38,47 @@ def extract_info(packet):
     dst_hostname = re.search(hostname_regex, dst_ip).group(0) if dst_ip and re.search(hostname_regex, dst_ip) else None
 
     return src_ip, src_hostname, dst_ip, dst_hostname
-
-# Função para inserir dados no PostgreSQL
-def insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname):
+    
+# Função para inserir dados no PostgreSQL usando SQLAlchemy
+def insert_packet_data(engine, src_ip, src_hostname, dst_ip, dst_hostname):
     try:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO network_traffic (src_ip, src_hostname, dst_ip, dst_hostname)
-            VALUES (%s, %s, %s, %s);
-        """, (src_ip, src_hostname, dst_ip, dst_hostname))
-        conn.commit()
-        cur.close()
-        print(f"Dados inseridos: src_ip={src_ip}, src_hostname={src_hostname}, dst_ip={dst_ip}, dst_hostname={dst_hostname}")
-    except psycopg2.Error as e:
-        print(f"Erro ao inserir dados no banco de dados: {e.pgcode} - {e.pgerror}")
-        print(f"Detalhes da exceção: {str(e)}")
-        conn.rollback()
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        metadata = MetaData()
+        network_traffic = Table('network_traffic', metadata, autoload_with=engine)
+        
+        insert_stmt = network_traffic.insert().values(
+            src_ip=src_ip,
+            src_hostname=src_hostname,
+            dst_ip=dst_ip,
+            dst_hostname=dst_hostname
+        )
+        session.execute(insert_stmt)
+        session.commit()
+        session.close()
+    except Exception as e:
+        print(f"Erro ao inserir dados no banco de dados: {e}")
+        session.rollback()
+        session.close()
 
 # Função principal de callback para a captura de pacotes
 def packet_callback(packet):
     src_ip, src_hostname, dst_ip, dst_hostname = extract_info(packet)
     print("Dados capturados:", src_ip, src_hostname, dst_ip, dst_hostname)
-    if conn:
-        insert_packet_data(conn, src_ip, src_hostname, dst_ip, dst_hostname)
+    if engine:
+        insert_packet_data(engine, src_ip, src_hostname, dst_ip, dst_hostname)
 
 # Iniciar a captura de pacotes
 def start_sniffing():
-    global conn
-    conn = connect_db()
-    if conn:
+    global engine
+    engine = connect_db()
+    if engine:
+        create_table(engine)
         try:
             print('Iniciando a captura de pacotes...')
-            sniff(prn=packet_callback, filter="ip", store=0, iface='eth0', promisc=True)
+            sniff(prn=packet_callback, store=0, iface='eth0', promisc=True)
         except Exception as e:
-            print(f"Erro durante a captura de pacotes: {e}")
-        finally:
-            conn.close()
+            print(f"Erro durante a captura de pacotes: {str(e)}")
     else:
         print('Não foi possível iniciar a captura de pacotes devido à falha na conexão com o banco de dados.')
 
