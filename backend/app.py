@@ -10,6 +10,7 @@ bcrypt = Bcrypt(app)
 # Conexão com o banco de dados PostgreSQL
 def connect_db():
     try:
+        #db_host = os.getenv('DB_HOST', 'localhost')
         conn = psycopg2.connect(
             dbname="sehenos-db",
             user="cypher",
