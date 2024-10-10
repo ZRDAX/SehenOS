@@ -36,7 +36,7 @@ const Login = () => {
             id="password"
             type="password"
             placeholder="*******"
-            className="bg-transparent border-0 border-b-2 rounded-none focus:outline-none w-full"
+            className=" text-cortexto bg-transparent border-0 border-b-2 rounded-none focus:outline-none w-full "
             required
           />
           <p className="text-sm text-muted-foreground text-accent-textfd">senha do usuario</p>
@@ -53,26 +53,26 @@ const Login = () => {
   {/* Imagem */}
   <div className="hidden lg:flex justify-center items-center">
     
-    <Intralines />
-    {/* <Image
+    {/* <Intralines /> */}
+    <Image
       src="/Liner.png"
       alt="Image"
       width="400"
       height="380"
       className="object-cover"
-    /> */}
+    />
   </div>
 
   {/* Triângulos e linha */}
   <div className="hidden lg:flex flex-col items-center">
     <div className="mt-10">
-      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"></div>
-      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"></div>
-      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"></div>
-      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"></div>
-      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"></div>
+      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"> </div>
+      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"> </div>
+      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"> </div>
+      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"> </div>
+      <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white"> </div>
     </div>
-    <div className="w-[2px] h-[350px] bg-white mt-2"></div>
+    <div className="w-[2px] h-[350px] bg-white mt-2"> </div>
   </div>
 </div>
   )

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { MyChart } from "@/components/views";
 
 const Home = () => {
     return (
@@ -111,6 +112,7 @@ const Home = () => {
                 <Link href="#" className="text-white">Advanced</Link>
             </nav>
             {/* sadla */}
+            {/* <MyChart /> */}
         </div>
         </main>
     </div>
