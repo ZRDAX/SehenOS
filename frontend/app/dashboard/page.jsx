@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { MyChart } from "@/components/views";
 
-const Home = () => {
+const Dashboard = () => {
     return (
         <div className="fle x min-h-screen w-full flex-col bg-accent-corfundo">
           <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
@@ -119,4 +119,4 @@ const Home = () => {
     )
 }
 
-export default Home;
+export default Dashboard;

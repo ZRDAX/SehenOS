@@ -41,7 +41,7 @@ const Login = () => {
           />
           <p className="text-sm text-muted-foreground text-accent-textfd">senha do usuario</p>
         </div>
-        <Link href="/home">
+        <Link href="/dashboard">
           <Button type="submit" variant="outline" className="w-full text-white bg-transparent hover:text-red-800">
             ENTRAR
           </Button>
