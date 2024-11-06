@@ -1,8 +1,11 @@
 #backend/app.py
 import os
-from flask import Flask, request, jsonify
+import time
+from flask import Flask, request, jsonify, Response
 from flask_bcrypt import Bcrypt
 import psycopg2
+import psutil
+import subprocess
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
@@ -15,13 +18,21 @@ def connect_db():
             user="cypher",
             password="piswos",
             host="localhost",  # Nome do serviço no Docker Compose
-            port="5432"  # porta do postgresql
+            port="5432"  # porta do PostgreSQL
         )
         return conn
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
-    
+
+# Função para obter a temperatura da CPU no Linux
+def get_cpu_temp():
+    try:
+        temp = subprocess.run(['cat', '/sys/class/thermal/thermal_zone0/temp'], stdout=subprocess.PIPE)
+        return int(temp.stdout) / 1000  # Conversão para Celsius
+    except Exception as e:
+        return None
+
 # Endpoint para autenticação
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -58,8 +69,7 @@ def get_packets():
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        
-        # Formatando os resultados para JSON
+
         packets = [
             {"id": row[0], "timestamp": row[1], "src_ip": row[2], "src_hostname": row[3],
             "dst_ip": row[4], "dst_hostname": row[5]}
@@ -85,7 +95,6 @@ def get_anomalies():
             cur.close()
             conn.close()
 
-        # Corrigido para usar a lista 'rows'
         anomalies = [
             {"id": row[0], "timestamp": row[1], "src_ip": row[2], "src_hostname": row[3],
             "src_mac": row[4], "dst_ip": row[5], "dst_hostname": row[6], "dst_mac": row[7]}
@@ -95,6 +104,33 @@ def get_anomalies():
     else:
         return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
 
+# Endpoint para informações de sistema (CPU, RAM, Temperatura)
+@app.route('/api/system_info', methods=['GET'])
+def get_system_info():
+    def generate():
+        while True:
+            # Uso de CPU
+            cpu_usage = psutil.cpu_percent(interval=1)
+            
+            # Temperatura da CPU (em Linux)
+            cpu_temp = get_cpu_temp()
+
+            # Memória RAM
+            memory_info = psutil.virtual_memory()
+
+            # Informações formatadas em JSON
+            system_info = {
+                "cpu_usage": f"{cpu_usage}%",
+                "cpu_temperature": f"{cpu_temp} °C" if cpu_temp is not None else "Temperatura indisponível",
+                "total_memory": f"{memory_info.total / (1024 ** 3):.2f} GB",
+                "used_memory": f"{memory_info.used / (1024 ** 3):.2f} GB"
+            }
+
+            # Enviar dados como evento
+            yield f"data: {jsonify(system_info).get_data(as_text=True)}\n\n"
+            time.sleep(1)  # Pausa antes da próxima atualização
+
+    return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

@@ -29,15 +29,9 @@ def preprocess_data(df):
 
     df_original = df.copy()
 
-    # Label Encoding para IPs e Hostnames                                                           c;"
+    # Label Encoding para IPs e Hostnames
     for column in ['src_ip', 'dst_ip', 'src_hostname', 'dst_hostname', 'src_mac', 'dst_mac']:       
         df[column] = df[column].astype('category').cat.codes
-
-    #label_encoders = {}
-    #for column in df.columns:
-        #le = LabelEncoder()
-        #df[column] = le.fit_transform(df[column].astype(str))
-        #label_encoders[column] = le
 
     # Normalização
     df = df.fillna(0)
@@ -63,6 +57,7 @@ def build_nn_model(input_shape):
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
+
 # Inserir anomalias no banco de dados
 def insert_anomalies(engine, anomalies_indices, df_original):
     try:
@@ -84,7 +79,6 @@ def insert_anomalies(engine, anomalies_indices, df_original):
                 src_mac=original_data['src_mac'],
                 dst_mac=original_data['dst_mac']
             )
-            # Execute a instrução de inserção
             session.execute(insert_stmt)
 
         session.commit()
@@ -123,9 +117,11 @@ def main():
 
         # Inserir anomalias no banco de dados
         insert_anomalies(engine, anomalies_indices, df_original)
+        
         # Treinamento da rede neural
         nn_model = build_nn_model(X_train.shape[1])
-        y_train = (model.predict(X_train) == -1).astype(int).ravel()  # Criação de rótulos fictícios        nn_model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
+        y_train = (model.predict(X_train) == -1).astype(int).ravel()  # Criação de rótulos fictícios
+        nn_model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
 
 if __name__ == "__main__":
     main()
