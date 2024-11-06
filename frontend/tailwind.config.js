@@ -12,11 +12,28 @@ module.exports = {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
     },
+    screens: {
+			sm: "640px",
+			md: "768px",
+			lg: "960px",
+			xl: "1200px",
+		},
+    // fontFamily: {
+		// 	primary: "var(--font-montserrat)",
+		// 	//serve para setar a variação como um componete no tailwindcss
+		// },
     extend: {
+      textColor: {
+				cortexto: "#FFFFFF",
+			},
+			colors: {
+				//primary: "#212121",
+				accent: {
+          corfundo: "#111111",
+          textfd: "#CFCFCF", 
+				},
+			},
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
