@@ -14,7 +14,7 @@ def connect_redis():
         return None
 
 # RegEx simplificada para FQDN
-hostname_regex = re.compile(r"^(?=.{1,255}$)([a-zA-Z0-9_-]+\.)*[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$")
+hostname_regex = re.compile(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
 # Callback para captura de pacotes
 def packet_callback(packet):
@@ -59,7 +59,7 @@ def create_backup_file():
         redis_conn = connect_redis()
         if redis_conn:
             packets = redis_conn.lrange("network_packets", 0, -1)
-            with open("packet_capture_backup.txt", "w") as file:
+            with open("logs/packet_capture_backup.txt", "w") as file:
                 file.write("\n".join(packets))
             redis_conn.delete("network_packets")
 
