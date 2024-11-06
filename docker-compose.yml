@@ -1,3 +1,4 @@
+# docker-compose.yml
 version: '3.9'
 
 services:
@@ -12,6 +13,14 @@ services:
       - "5432:5432"
     volumes:
       - postgresql:/var/lib/postgresql/data
+    networks:
+      - sehenos
+  
+  redis:
+    image: redis:alpine
+    container_name: sehenos-redis
+    ports:
+      - "6379:6379"
     networks:
       - sehenos
 
