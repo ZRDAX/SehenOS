@@ -50,6 +50,13 @@ services:
     networks:
       - sehenos
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - sehenos_network
+
 networks:
   sehenos:
     name: sehenos
