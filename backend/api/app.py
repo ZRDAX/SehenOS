@@ -84,7 +84,7 @@ def get_system_info():
 
             # Enviar dados como evento
             yield f"data: {jsonify(system_info).get_data(as_text=True)}\n\n"
-            time.sleep(1)  # Pausa antes da próxima atualização
+            time.sleep(1)
 
     return Response(generate(), mimetype='text/event-stream')
 
