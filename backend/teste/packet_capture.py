@@ -1,8 +1,10 @@
+#network_packets
 import redis
 import scapy.all as scapy
 import re
 import time
 import threading
+import json
 
 # Conexão com o Redis
 def connect_redis():
@@ -42,22 +44,31 @@ def packet_callback(packet):
                 print("Tipo incorreto detectado para 'network_packets'. Redefinindo chave.")
                 redis_conn.delete("network_packets")  # Limpa a chave incorreta
 
-            redis_conn.rpush("network_packets", str(data))
+            # Converte o dicionário para JSON e insere no Redis
+            redis_conn.rpush("network_packets", json.dumps(data))
 
         except redis.exceptions.ResponseError as e:
             print(f"Erro ao acessar a chave 'network_packets': {e}")
 
+# # Função para capturar pacotes continuamente
+# def start_sniffing():
+#     redis_conn = connect_redis()
+#     if redis_conn:
+#         print('Iniciando a captura de pacotes...')
+#         try:
+#             scapy.sniff(prn=packet_callback, store=0, iface='eth0', promisc=True)
+#         except Exception as e:
+#             print(f"Erro durante a captura de pacotes: {str(e)}")
+#     else:
+#         print('Não foi possível iniciar a captura de pacotes devido à falha na conexão com o Redis.')
+
 # Função para capturar pacotes continuamente
-def start_sniffing():
-    redis_conn = connect_redis()
-    if redis_conn:
-        print('Iniciando a captura de pacotes...')
-        try:
-            scapy.sniff(prn=packet_callback, store=0, iface='eth0', promisc=True)
-        except Exception as e:
-            print(f"Erro durante a captura de pacotes: {str(e)}")
-    else:
-        print('Não foi possível iniciar a captura de pacotes devido à falha na conexão com o Redis.')
+def start_sniffing(redis_conn):
+    print('Iniciando a captura de pacotes...')
+    try:
+        scapy.sniff(prn=lambda x: packet_callback(x, redis_conn), store=0, iface='eth0', promisc=True)
+    except Exception as e:
+        print(f"Erro durante a captura de pacotes: {str(e)}")
 
 # Função para criar backups periódicos
 def create_backup_file():
@@ -90,9 +101,12 @@ redis_conn = connect_redis()
 
 # Executa a captura de pacotes e o backup em threads separadas
 if __name__ == "__main__":
-    threading.Thread(target=start_sniffing, daemon=True).start()
-    threading.Thread(target=create_backup_file, daemon=True).start()
+    if redis_conn:
+        threading.Thread(target=start_sniffing, args=(redis_conn,), daemon=True).start()
+        threading.Thread(target=create_backup_file, args=(redis_conn,), daemon=True).start()
 
-    # Mantém a execução do programa principal
-    while True:
-        time.sleep(1)
+        # Mantém a execução do programa principal
+        while True:
+            time.sleep(1)
+    else:
+        print("Falha ao conectar ao Redis. O programa não será executado.")

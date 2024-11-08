@@ -50,28 +50,33 @@ def detect_anomalies():
         scaler = MinMaxScaler()
 
     # Intervalo para criação de arquivo de backup
-    #txt_interval = 18000  # 5 horas
-    txt_interval = 360  # 6 min para teste 
+    txt_interval = 360  # 6 min para teste
     last_txt_save = time.time()
 
     while True:
-        # Carregar dados do Redis
+        # Carregar dados do Redis a partir de uma lista
         data = []
-        for key in r.scan_iter():
-            try:
-                packet = r.hgetall(key)
-                if packet:  # Confirma se o dado está no formato esperado
+        list_key = "network_packets"  # Nome da chave de lista
+
+        try:
+            list_length = r.llen(list_key)  # Verificar quantos itens estão na lista
+            if list_length > 0:
+                packet_list = r.lrange(list_key, 0, -1)  # Pegar todos os pacotes da lista
+
+                for packet_str in packet_list:
+                    packet = eval(packet_str)  # Converte string de volta para dict
                     data.append([
                         packet.get("src_ip"),
                         packet.get("dst_ip"),
                         packet.get("src_mac"),
                         packet.get("dst_mac")
                     ])
-                else:
-                    print(f"Chave '{key}' não é do tipo hash. Ignorando.")
-            except redis.exceptions.ResponseError as e:
-                print(f"Erro ao acessar a chave '{key}': {e}")
-                continue
+            else:
+                print("Lista 'network_packets' está vazia.")
+
+        except Exception as e:
+            print(f"Erro ao acessar a lista '{list_key}': {e}")
+            continue
 
         if not data:
             print("Nenhum dado no Redis para analisar.")
@@ -112,7 +117,7 @@ def detect_anomalies():
             last_txt_save = current_time
             print(f"Backup das anomalias salvo em {txt_filename}")
             # Limpeza do buffer Redis após backup
-            r.flushdb()
+            r.delete(list_key)
             print("Buffer Redis limpo.")
             
         # Pausa entre execuções para não sobrecarregar
