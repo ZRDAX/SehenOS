@@ -1,136 +1,259 @@
-#backend/app.py
+from flask import Flask, jsonify, send_file, Response, request
+import redis
+import psutil
 import os
 import time
-from flask import Flask, request, jsonify, Response
-from flask_bcrypt import Bcrypt
-import psycopg2
-import psutil
-import subprocess
+import json
+from datetime import datetime
+import logging
 
 app = Flask(__name__)
-bcrypt = Bcrypt(app)
 
-# Conexão com o banco de dados PostgreSQL
-def connect_db():
+# Configuração de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Configurações
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6380
+PACKET_BACKUP_PATH = "packet_capture_backup.txt"
+ANOMALY_BACKUP_PATH = "anomaly_detection_backup.txt"
+SYSTEM_INFO_INTERVAL = 1  # segundos
+
+# Conexão com o Redis
+def connect_redis():
     try:
-        conn = psycopg2.connect(
-            dbname="sehenos-db",
-            user="cypher",
-            password="piswos",
-            host="localhost",  # Nome do serviço no Docker Compose
-            port="5432"  # porta do PostgreSQL
+        r = redis.StrictRedis(
+            host=REDIS_HOST, 
+            port=REDIS_PORT, 
+            db=0, 
+            decode_responses=True,
+            socket_timeout=5
         )
-        return conn
+        r.ping()  # Verifica se a conexão está ativa
+        return r
+    except redis.ConnectionError as e:
+        logger.error(f"Erro ao conectar ao Redis: {e}")
+        return None
     except Exception as e:
-        print(f"Erro ao conectar ao banco de dados: {e}")
+        logger.error(f"Erro inesperado ao conectar ao Redis: {e}")
         return None
 
 # Função para obter a temperatura da CPU no Linux
 def get_cpu_temp():
     try:
-        temp = subprocess.run(['cat', '/sys/class/thermal/thermal_zone0/temp'], stdout=subprocess.PIPE)
-        return int(temp.stdout) / 1000  # Conversão para Celsius
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as temp_file:
+            temp = int(temp_file.read()) / 1000
+        return temp
+    except FileNotFoundError:
+        logger.warning("Arquivo de temperatura da CPU não encontrado")
+        return None
     except Exception as e:
+        logger.error(f"Erro ao ler temperatura da CPU: {e}")
         return None
 
-# Endpoint para autenticação
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+# Função para formatar pacotes de rede
+def format_network_packet(packet_str):
+    try:
+        packet = json.loads(packet_str)
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "src_ip": packet.get("src_ip", "unknown"),
+            "dst_ip": packet.get("dst_ip", "unknown"),
+            "src_mac": packet.get("src_mac", "unknown"),
+            "dst_mac": packet.get("dst_mac", "unknown"),
+            "src_hostname": packet.get("src_hostname", "unknown"),
+            "dst_hostname": packet.get("dst_hostname", "unknown")
+        }
+    except json.JSONDecodeError as e:
+        logger.error(f"Erro ao decodificar pacote: {e}")
+        return None
 
-    conn = connect_db()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT password FROM users WHERE email = %s;", (email,))
-            result = cur.fetchone()
-            cur.close()
-            conn.close()
+# Endpoint para baixar o arquivo de backup dos pacotes
+@app.route('/api/packet_backup', methods=['GET'])
+def get_packet_backup():
+    try:
+        if not os.path.exists(PACKET_BACKUP_PATH):
+            return jsonify({"error": "Arquivo de backup não encontrado"}), 404
+        return send_file(PACKET_BACKUP_PATH, as_attachment=True)
+    except Exception as e:
+        logger.error(f"Erro ao enviar arquivo de backup de pacotes: {e}")
+        return jsonify({"error": str(e)}), 500
 
-            if result and bcrypt.check_password_hash(result[0], password):
-                return jsonify({'message': 'Login bem-sucedido'}), 200
-            else:
-                return jsonify({'message': 'Credenciais inválidas'}), 401
-        except Exception as e:
-            print(f"Erro ao executar a query: {e}")
-            return jsonify({"error": "Erro ao executar a query"}), 500
-    else:
-        return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
+# Endpoint para baixar o arquivo de backup das anomalias
+@app.route('/api/anomaly_backup', methods=['GET'])
+def get_anomaly_backup():
+    try:
+        if not os.path.exists(ANOMALY_BACKUP_PATH):
+            return jsonify({"error": "Arquivo de backup não encontrado"}), 404
+        return send_file(ANOMALY_BACKUP_PATH, as_attachment=True)
+    except Exception as e:
+        logger.error(f"Erro ao enviar arquivo de backup de anomalias: {e}")
+        return jsonify({"error": str(e)}), 500
 
-# Endpoint para listar os pacotes capturados
-@app.route('/api/packets', methods=['GET'])
-def get_packets():
-    conn = connect_db()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM network_traffic;")
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        packets = [
-            {"id": row[0], "timestamp": row[1], "src_ip": row[2], "src_hostname": row[3],
-            "dst_ip": row[4], "dst_hostname": row[5]}
-            for row in rows
-        ]
-        return jsonify(packets)
-    else:
-        return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
-
-# Endpoint para listar as anomalias detectadas
+# Endpoint para listar as anomalias do Redis
 @app.route('/api/anomalies', methods=['GET'])
 def get_anomalies():
-    conn = connect_db()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM anomalies;")
-            rows = cur.fetchall()
-        except Exception as e:
-            print(f"Erro ao executar a query: {e}")
-            return jsonify({"error": "Erro ao executar a query"}), 500
-        finally:
-            cur.close()
-            conn.close()
+    redis_conn = connect_redis()
+    if not redis_conn:
+        return jsonify({"error": "Não foi possível conectar ao Redis"}), 500
 
-        anomalies = [
-            {"id": row[0], "timestamp": row[1], "src_ip": row[2], "src_hostname": row[3],
-            "src_mac": row[4], "dst_ip": row[5], "dst_hostname": row[6], "dst_mac": row[7]}
-            for row in rows
-        ]
-        return jsonify(anomalies)
-    else:
-        return jsonify({"error": "Não foi possível conectar ao banco de dados"}), 500
+    try:
+        # Parâmetros de paginação
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        start = (page - 1) * per_page
+        end = start + per_page - 1
 
-# Endpoint para informações de sistema (CPU, RAM, Temperatura)
+        # Obtém as anomalias com paginação
+        anomalies = redis_conn.lrange("anomalies", start, end)
+        total_anomalies = redis_conn.llen("anomalies")
+
+        # Processa as anomalias
+        processed_anomalies = []
+        for anomaly in anomalies:
+            try:
+                anomaly_data = json.loads(anomaly)
+                processed_anomalies.append(anomaly_data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Erro ao decodificar anomalia: {e}")
+                continue
+
+        return jsonify({
+            "anomalies": processed_anomalies,
+            "total": total_anomalies,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_anomalies + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        logger.error(f"Erro ao recuperar anomalias: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para listar os pacotes do Redis
+@app.route('/api/packets', methods=['GET'])
+def get_packets():
+    redis_conn = connect_redis()
+    if not redis_conn:
+        return jsonify({"error": "Não foi possível conectar ao Redis"}), 500
+
+    try:
+        # Parâmetros de paginação
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        start = (page - 1) * per_page
+        end = start + per_page - 1
+
+        # Obtém os pacotes com paginação
+        packets = redis_conn.lrange("network_packets", start, end)
+        total_packets = redis_conn.llen("network_packets")
+
+        # Processa os pacotes
+        processed_packets = []
+        for packet in packets:
+            formatted_packet = format_network_packet(packet)
+            if formatted_packet:
+                processed_packets.append(formatted_packet)
+
+        return jsonify({
+            "packets": processed_packets,
+            "total": total_packets,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_packets + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        logger.error(f"Erro ao recuperar pacotes: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para estatísticas do sistema
 @app.route('/api/system_info', methods=['GET'])
 def get_system_info():
     def generate():
         while True:
-            # Uso de CPU
-            cpu_usage = psutil.cpu_percent(interval=1)
-            
-            # Temperatura da CPU (em Linux)
-            cpu_temp = get_cpu_temp()
+            try:
+                # Uso de CPU
+                cpu_usage = psutil.cpu_percent(interval=1)
+                
+                # Temperatura da CPU
+                cpu_temp = get_cpu_temp()
+                
+                # Informações de memória
+                memory = psutil.virtual_memory()
+                
+                # Estatísticas do Redis
+                redis_conn = connect_redis()
+                redis_stats = {
+                    "total_packets": redis_conn.llen("network_packets") if redis_conn else 0,
+                    "total_anomalies": redis_conn.llen("anomalies") if redis_conn else 0
+                }
 
-            # Memória RAM
-            memory_info = psutil.virtual_memory()
+                # Informações do sistema
+                system_info = {
+                    "timestamp": datetime.now().isoformat(),
+                    "cpu": {
+                        "usage": f"{cpu_usage}%",
+                        "temperature": f"{cpu_temp:.1f}°C" if cpu_temp is not None else "N/A"
+                    },
+                    "memory": {
+                        "total": f"{memory.total / (1024**3):.2f}GB",
+                        "used": f"{memory.used / (1024**3):.2f}GB",
+                        "percent": f"{memory.percent}%"
+                    },
+                    "redis_stats": redis_stats
+                }
 
-            # Informações formatadas em JSON
-            system_info = {
-                "cpu_usage": f"{cpu_usage}%",
-                "cpu_temperature": f"{cpu_temp} °C" if cpu_temp is not None else "Temperatura indisponível",
-                "total_memory": f"{memory_info.total / (1024 ** 3):.2f} GB",
-                "used_memory": f"{memory_info.used / (1024 ** 3):.2f} GB"
-            }
+                yield f"data: {json.dumps(system_info)}\n\n"
+                time.sleep(SYSTEM_INFO_INTERVAL)
 
-            # Enviar dados como evento
-            yield f"data: {jsonify(system_info).get_data(as_text=True)}\n\n"
-            time.sleep(1)  # Pausa antes da próxima atualização
+            except Exception as e:
+                logger.error(f"Erro ao gerar informações do sistema: {e}")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                time.sleep(SYSTEM_INFO_INTERVAL)
 
     return Response(generate(), mimetype='text/event-stream')
 
+# Endpoint para sumário do sistema
+@app.route('/api/system_summary', methods=['GET'])
+def get_system_summary():
+    try:
+        redis_conn = connect_redis()
+        if not redis_conn:
+            return jsonify({"error": "Não foi possível conectar ao Redis"}), 500
+
+        # Coleta todas as informações relevantes
+        summary = {
+            "system_status": {
+                "cpu_usage": psutil.cpu_percent(),
+                "memory_usage": psutil.virtual_memory().percent,
+                "cpu_temperature": get_cpu_temp()
+            },
+            "network_status": {
+                "total_packets_captured": redis_conn.llen("network_packets"),
+                "total_anomalies_detected": redis_conn.llen("anomalies")
+            },
+            "backup_status": {
+                "packet_backup_exists": os.path.exists(PACKET_BACKUP_PATH),
+                "anomaly_backup_exists": os.path.exists(ANOMALY_BACKUP_PATH)
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+        return jsonify(summary)
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar sumário do sistema: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    logger.info("Iniciando aplicação Flask...")
+    app.run(host='0.0.0.0', port=5000, debug=True)
