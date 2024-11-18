@@ -8,4 +8,5 @@ pandas
 scikit-learn
 joblib
 numpy
+ipaddress
 python-telegram-bot
