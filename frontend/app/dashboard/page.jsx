@@ -1,7 +1,8 @@
 "use client";
 
+import Header from "@/components/ui/header";
+import Footer from "@/components/ui/footer";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { Line } from "react-chartjs-2";
 import { io } from "socket.io-client";
 import {
@@ -12,7 +13,7 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 } from "chart.js";
 
 ChartJS.register(
@@ -25,18 +26,6 @@ ChartJS.register(
   Legend
 );
 
-import { CircleUser, Menu, Package2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-
 const socket = io("http://localhost:4000");
 
 export default function Dashboard() {
@@ -44,231 +33,164 @@ export default function Dashboard() {
   const [anomalyData, setAnomalyData] = useState([]);
   const [packetFiles, setPacketFiles] = useState([]);
   const [anomalyFiles, setAnomalyFiles] = useState([]);
-  const [packetTimes, setPacketTimes] = useState([]); 
-  const [anomalyTimes, setAnomalyTimes] = useState([]); 
-  const timePeriod = 15; // número de pontos de dados para exibir no gráfico
+  const [packetTimes, setPacketTimes] = useState([]);
+  const [anomalyTimes, setAnomalyTimes] = useState([]);
+  const [systemInfo, setSystemInfo] = useState(null);
+  const [systemSummary, setSystemSummary] = useState(null);
 
   useEffect(() => {
-    const fetchFiles = async () => {
+    const fetchData = async () => {
       try {
-        const packetFilesRes = await fetch("/api/packet_backup");
-        const anomalyFilesRes = await fetch("/api/anomaly_backup");
+        const [packetFilesRes, anomalyFilesRes] = await Promise.all([
+          fetch("http://192.168.1.115:5000/api/packet_backup"),
+          fetch("http://192.168.1.115:5000/api/anomaly_backup"),
+        ]);
 
-        if (!packetFilesRes.ok || !anomalyFilesRes.ok) {
-          throw new Error("Falha ao buscar dados na API.");
-        }
+        setPacketFiles(await packetFilesRes.json());
+        setAnomalyFiles(await anomalyFilesRes.json());
 
-        const packetFilesData = await packetFilesRes.json();
-        const anomalyFilesData = await anomalyFilesRes.json();
+        const [packetsRes, anomaliesRes] = await Promise.all([
+          fetch("http://192.168.1.115:5000/api/packets"),
+          fetch("http://192.168.1.115:5000/api/anomalies"),
+        ]);
 
-        setPacketFiles(packetFilesData);
-        setAnomalyFiles(anomalyFilesData);
+        const packetsData = await packetsRes.json();
+        const anomaliesData = await anomaliesRes.json();
+
+        setPacketData(packetsData.map((p) => p.value));
+        setAnomalyData(anomaliesData.map((a) => a.value));
+        setPacketTimes(packetsData.map((p) => p.timestamp));
+        setAnomalyTimes(anomaliesData.map((a) => a.timestamp));
+
+        const [systemInfoRes, systemSummaryRes] = await Promise.all([
+          fetch("http://192.168.1.115:5000/api/system_info"),
+          fetch("http://192.168.1.115:5000/api/system_summary"),
+        ]);
+
+        setSystemInfo(await systemInfoRes.json());
+        setSystemSummary(await systemSummaryRes.json());
       } catch (error) {
-        console.error("Erro ao buscar arquivos: ", error);
+        console.error("Erro ao buscar dados: ", error);
       }
     };
 
-    fetchFiles();
-  }, []);
-
-  useEffect(() => {
-    // configuração de dados em tempo real
-    socket.on("packet_data", (data) => {
-      const currentTime = new Date().toLocaleTimeString(); 
-      setPacketData((prevData) => {
-        const updatedData = [...prevData, data];
-        return updatedData.length > timePeriod ? updatedData.slice(1) : updatedData;
-      });
-      setPacketTimes((prevTimes) => {
-        const updatedTimes = [...prevTimes, currentTime];
-        return updatedTimes.length > timePeriod ? updatedTimes.slice(1) : updatedTimes;
-      });
-    });
-
-    socket.on("anomaly_data", (data) => {
-      const currentTime = new Date().toLocaleTimeString();
-      setAnomalyData((prevData) => {
-        const updatedData = [...prevData, data];
-        return updatedData.length > timePeriod ? updatedData.slice(1) : updatedData;
-      });
-      setAnomalyTimes((prevTimes) => {
-        const updatedTimes = [...prevTimes, currentTime];
-        return updatedTimes.length > timePeriod ? updatedTimes.slice(1) : updatedTimes;
-      });
-    });
-
-    return () => {
-      socket.off("packet_data");
-      socket.off("anomaly_data");
-    };
+    fetchData();
   }, []);
 
   const packetChartData = {
     labels: packetTimes,
     datasets: [
       {
-        label: "Trafego de Rede",
+        label: "Tráfego de Rede",
         data: packetData,
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
+        borderWidth: 2,
       },
     ],
   };
 
   const anomalyChartData = {
-    labels: anomalyTimes, 
+    labels: anomalyTimes,
     datasets: [
       {
         label: "Anomalias",
         data: anomalyData,
         backgroundColor: "rgba(255, 99, 132, 0.2)",
         borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
+        borderWidth: 2,
       },
     ],
   };
 
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: "top",
+      },
+    },
+  };
+
   return (
-    <div className="flex min-h-screen w-full flex-col bg-accent-corfundo text-white">
-      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4">
-        <nav className="flex gap-6 text-lg font-medium">
-          <Link href="#" className="font-semibold">
-            Dashboard
-          </Link>
-          <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">
-            Settings
-          </Link>
-        </nav>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 md:hidden"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle navigation menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left">
-            <nav className="grid gap-6 text-lg font-medium">
-              <Link
-                href="#"
-                className="flex items-center gap-2 text-lg font-semibold"
-              >
-                <Package2 className="h-6 w-6" />
-                <span className="sr-only">Acme Inc</span>
-              </Link>
-              <Link
-                href="#"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Dashboard
-              </Link>
-              <Link href="#" className="hover:text-foreground">
-                Settings
-              </Link>
-            </nav>
-          </SheetContent>
-        </Sheet>
-        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <form className="ml-auto flex-1 sm:flex-initial">
-            <div className="relative">
+    <div className="min-h-screen bg-gradient-to-b from-accent-corfundo to-black text-white">
+      <Header />
+
+      <main className="container mx-auto px-4 py-12">
+        <h1 className="text-4xl lg:text-5xl font-bold text-center text-cortexto mb-12">
+          WIRES
+        </h1>
+
+        {/* Gráficos */}
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg overflow-x-auto">
+            <h2 className="text-2xl font-semibold mb-4 text-cortexto">Tráfego de Rede</h2>
+            <div className="relative h-64 w-full">
+              <Line data={packetChartData} options={chartOptions} />
             </div>
-          </form>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" className="rounded-full">
-                <CircleUser className="h-5 w-5" />
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <main className="flex-1 p-4">
-        <h1 className="text-3xl font-semibold mb-8">WIRES</h1>
-
-        <div className="grid gap-8 md:grid-cols-2">
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Trafego de Rede</h2>
-            <Line data={packetChartData} />
           </div>
 
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Anomalias</h2>
-            <Line data={anomalyChartData} />
+          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg overflow-x-auto">
+            <h2 className="text-2xl font-semibold mb-4 text-cortexto">Anomalias</h2>
+            <div className="relative h-64 w-full">
+              <Line data={anomalyChartData} options={chartOptions} />
+            </div>
           </div>
         </div>
 
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-4">Arquivos de Backup</h2>
-          <table className="w-full text-left border-separate border-spacing-2">
+        {/* Backups */}
+        <div className="mt-12 bg-black p-6 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-semibold text-cortexto mb-4">Arquivos de Backup</h2>
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="px-4 py-2 border-b bg-gray-700">Tipo</th>
-                <th className="px-4 py-2 border-b bg-gray-700">Nome do Arquivo</th>
+                <th className="px-4 py-2 border-b text-cortexto">Tipo</th>
+                <th className="px-4 py-2 border-b text-cortexto">Nome do Arquivo</th>
               </tr>
             </thead>
-            <tbody className="transition-all duration-300 ease-in-out">
+            <tbody>
               {packetFiles.map((file, idx) => (
-                <tr
-                  key={idx}
-                  className="hover:bg-gray-800 transition-all duration-300"
-                >
-                  <td className="px-4 py-2 border-b">{`Capture`}</td>
+                <tr key={idx} className="hover:bg-accent-corfundo">
+                  <td className="px-4 py-2 border-b">Captura</td>
                   <td className="px-4 py-2 border-b">{file}</td>
                 </tr>
               ))}
               {anomalyFiles.map((file, idx) => (
-                <tr
-                  key={idx}
-                  className="hover:bg-gray-800 transition-all duration-300"
-                >
-                  <td className="px-4 py-2 border-b">{`Anomalie`}</td>
+                <tr key={idx} className="hover:bg-accent-corfundo">
+                  <td className="px-4 py-2 border-b">Anomalia</td>
                   <td className="px-4 py-2 border-b">{file}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Informações do Sistema */}
+        <div className="grid gap-8 md:grid-cols-2 mt-12">
+          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold text-cortexto mb-4">Informações do Sistema</h2>
+            {systemInfo ? (
+              <pre className="text-sm bg-black p-4 rounded-lg">{JSON.stringify(systemInfo, null, 2)}</pre>
+            ) : (
+              <p>Carregando...</p>
+            )}
+          </div>
+
+          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold text-cortexto mb-4">Resumo de Informações</h2>
+            {systemSummary ? (
+              <pre className="text-sm bg-black p-4 rounded-lg">{JSON.stringify(systemSummary, null, 2)}</pre>
+            ) : (
+              <p>Carregando...</p>
+            )}
+          </div>
+        </div>
       </main>
 
-      <style jsx>{`
-        .text-muted-foreground {
-          color: #9a9a9a;
-        }
-        .text-foreground:hover {
-          color: #fff;
-        }
-        table {
-          border-collapse: separate;
-          border-spacing: 0;
-        }
-        tbody tr:hover {
-          background-color: #2d2d2d;
-        }
-        th {
-          text-align: left;
-          padding: 8px;
-          background-color: #333;
-          color: white;
-        }
-        td {
-          padding: 8px;
-          border-bottom: 1px solid #444;
-        }
-      `}</style>
+      <Footer />
+      
     </div>
   );
 }

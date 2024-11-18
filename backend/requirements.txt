@@ -6,4 +6,6 @@ psycopg2-binary
 psycopg2
 pandas
 scikit-learn
+joblib
+numpy
 python-telegram-bot

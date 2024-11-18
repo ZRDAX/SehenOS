@@ -1,3 +1,4 @@
+#Dockerfile backend
 FROM python:3.11-slim
 
 # Instalar libhdf5-dev por conta da biblioteca dar erro na hora de instalar hdf5 no TensorFlow
@@ -24,5 +25,5 @@ COPY . .
 # Expor a porta que o Flask usa
 EXPOSE 5000
 
-ENTRYPOINT ["python3", "app.py"]
+ENTRYPOINT ["python3", "server/app.py"]
 #ENTRYPOINT ["./wait_for_db.sh", "db", "python3", "app.py"]
