@@ -20,7 +20,7 @@ class AdvancedNetworkPacketAnalyzer:
         self.config = config or {
             'redis_host': 'localhost',
             'redis_port': 6380,
-            'log_file': f'logs/network_capture_enhanced.log',
+            'log_file': f'logs/netinfo.log',
             'suspicious_threshold': {
                 'port_scan': 15,
                 'high_traffic': 5_000_000,  # 5MB
@@ -28,7 +28,7 @@ class AdvancedNetworkPacketAnalyzer:
             }
         }
         
-                # Novas adições para detecção de domínios e IPs maliciosos
+        # Novas adições para detecção de domínios e IPs maliciosos
         self.malicious_domains = {
             'gambling': [
                 'krunker.io', 
@@ -47,8 +47,7 @@ class AdvancedNetworkPacketAnalyzer:
         
         self.blacklisted_ips = set()
         self.threat_intelligence_sources = [
-            'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset',
-            'https://raw.githubusercontent.com/stamparm/ipsum/master/levels/level-1.txt'
+            'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset'
         ]
         
         # Configurações avançadas de segurança
@@ -249,105 +248,105 @@ class AdvancedNetworkPacketAnalyzer:
             logging.error(f"Comprehensive packet analysis error: {e}")
             return None
 
-def _extract_domain(self, packet):
-    """Tenta extrair domínio do pacote com múltiplas estratégias"""
-    try:
-        # Estratégia 1: Pacotes DNS
-        if packet.haslayer(scapy.DNS):
-            try:
-                # Extração de domínio de consultas DNS
-                if packet[scapy.DNS].qd:
-                    return packet[scapy.DNS].qd.qname.decode('utf-8').rstrip('.')
-            except Exception as dns_error:
-                logging.debug(f"DNS domain extraction error: {dns_error}")
+    def _extract_domain(self, packet):
+        """Tenta extrair domínio do pacote com múltiplas estratégias"""
+        try:
+            # Estratégia 1: Pacotes DNS
+            if packet.haslayer(scapy.DNS):
+                try:
+                    # Extração de domínio de consultas DNS
+                    if packet[scapy.DNS].qd:
+                        return packet[scapy.DNS].qd.qname.decode('utf-8').rstrip('.')
+                except Exception as dns_error:
+                    logging.debug(f"DNS domain extraction error: {dns_error}")
 
-        # Estratégia 2: Camadas de payload HTTP
-        if packet.haslayer(scapy.TCP) and packet.haslayer(scapy.Raw):
+            # Estratégia 2: Camadas de payload HTTP
+            if packet.haslayer(scapy.TCP) and packet.haslayer(scapy.Raw):
+                try:
+                    payload = packet[scapy.Raw].load.decode('utf-8', errors='ignore')
+                
+                    # Padrões para extração de domínio
+                    http_patterns = [
+                        r'Host: ([^\r\n]+)',           # Cabeçalho Host padrão
+                        r'https?://([^/\s]+)',          # URLs completas
+                        r'\b([\w-]+\.[a-z]{2,})\b'     # Domínios genéricos
+                    ]
+                
+                    for pattern in http_patterns:
+                        domain_match = re.search(pattern, payload, re.IGNORECASE)
+                        if domain_match:
+                            domain = domain_match.group(1).strip()
+                            # Validações adicionais
+                            if self._is_valid_domain(domain):
+                                return domain
+                except Exception as http_error:
+                    logging.debug(f"HTTP domain extraction error: {http_error}")
+
+            # Estratégia 3: Extração de SNI (Server Name Indication) para TLS
+            if packet.haslayer(scapy.TLS):
+                try:
+                    # Tenta extrair nome do servidor de extensões TLS
+                    for ext in packet[scapy.TLS].extensions:
+                        if ext.type == 0:  # Tipo de extensão SNI
+                            server_name = ext.servernames[0].hostname.decode('utf-8')
+                            if self._is_valid_domain(server_name):
+                                return server_name
+                except Exception as tls_error:
+                    logging.debug(f"TLS SNI extraction error: {tls_error}")
+
+            # Estratégia 4: Resolução reversa de IP
             try:
-                payload = packet[scapy.Raw].load.decode('utf-8', errors='ignore')
-                
-                # Padrões para extração de domínio
-                http_patterns = [
-                    r'Host: ([^\r\n]+)',           # Cabeçalho Host padrão
-                    r'https?://([^/\s]+)',          # URLs completas
-                    r'\b([\w-]+\.[a-z]{2,})\b'     # Domínios genéricos
-                ]
-                
-                for pattern in http_patterns:
-                    domain_match = re.search(pattern, payload, re.IGNORECASE)
-                    if domain_match:
-                        domain = domain_match.group(1).strip()
-                        # Validações adicionais
+                if packet.haslayer(IP):
+                    ip = packet[IP].dst  # Pode usar src ou dst
+                    try:
+                        domain = socket.gethostbyaddr(ip)[0]
                         if self._is_valid_domain(domain):
                             return domain
-            except Exception as http_error:
-                logging.debug(f"HTTP domain extraction error: {http_error}")
+                    except socket.herror:
+                        pass  # Falha na resolução reversa é esperada
+            except Exception as ip_error:
+                logging.debug(f"Reverse IP resolution error: {ip_error}")
 
-        # Estratégia 3: Extração de SNI (Server Name Indication) para TLS
-        if packet.haslayer(scapy.TLS):
-            try:
-                # Tenta extrair nome do servidor de extensões TLS
-                for ext in packet[scapy.TLS].extensions:
-                    if ext.type == 0:  # Tipo de extensão SNI
-                        server_name = ext.servernames[0].hostname.decode('utf-8')
-                        if self._is_valid_domain(server_name):
-                            return server_name
-            except Exception as tls_error:
-                logging.debug(f"TLS SNI extraction error: {tls_error}")
+            return None
 
-        # Estratégia 4: Resolução reversa de IP
+        except Exception as e:
+            logging.error(f"Comprehensive domain extraction error: {e}")
+            return None
+
+    def _is_valid_domain(self, domain):
+        """Valida se o domínio extraído é válido"""
         try:
-            if packet.haslayer(IP):
-                ip = packet[IP].dst  # Pode usar src ou dst
-                try:
-                    domain = socket.gethostbyaddr(ip)[0]
-                    if self._is_valid_domain(domain):
-                        return domain
-                except socket.herror:
-                    pass  # Falha na resolução reversa é esperada
-        except Exception as ip_error:
-            logging.debug(f"Reverse IP resolution error: {ip_error}")
-
-        return None
-
-    except Exception as e:
-        logging.error(f"Comprehensive domain extraction error: {e}")
-        return None
-
-def _is_valid_domain(self, domain):
-    """Valida se o domínio extraído é válido"""
-    try:
-        # Critérios de validação de domínio
-        if not domain:
-            return False
+            # Critérios de validação de domínio
+            if not domain:
+                return False
         
-        # Expressão regular para validação de domínio
-        domain_regex = r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,}$'
+            # Expressão regular para validação de domínio
+            domain_regex = r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,}$'
         
-        if not re.match(domain_regex, domain):
-            return False
+            if not re.match(domain_regex, domain):
+                return False
         
-        # Comprimento do domínio
-        if len(domain) > 255:
-            return False
+            # Comprimento do domínio
+            if len(domain) > 255:
+                return False
         
-        # Verifica se não contém caracteres inválidos
-        if re.search(r'[^\w\.-]', domain):
-            return False
+            # Verifica se não contém caracteres inválidos
+            if re.search(r'[^\w\.-]', domain):
+                return False
         
-        return True
-    
-    except Exception as e:
-        logging.error(f"Domain validation error: {e}")
-        return False
-        
-    def _validate_ip_address(self, ip_address):
-        """Validação de endereço IP"""
-        try:
-            ipaddress.ip_address(ip_address)
             return True
-        except ValueError:
+    
+        except Exception as e:
+            logging.error(f"Domain validation error: {e}")
             return False
+        
+        def _validate_ip_address(self, ip_address):
+            """Validação de endereço IP"""
+            try:
+                ipaddress.ip_address(ip_address)
+                return True
+            except ValueError:
+                return False
 
     def _check_ip_reputation(self, src_ip, dst_ip):
         """Verifica reputação dos IPs"""
@@ -405,7 +404,7 @@ def _is_valid_domain(self, domain):
 
 def main():
     analyzer = AdvancedNetworkPacketAnalyzer()
-    analyzer.start_packet_capture("eth0")
+    analyzer.start_packet_capture('eth0')
 
 if __name__ == "__main__":
     main()

@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 
 # Cria handlers
-file_handler = FileHandler('app.log')
+file_handler = FileHandler('logs/app.log')
 stream_handler = StreamHandler()
 
 # Define o formato para os handlers

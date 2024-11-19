@@ -19,7 +19,7 @@ from sklearn.ensemble import IsolationForest  # Algoritmo de detecção de anoma
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='anomaly_detection.log'
+    filename=f'./logs/anomaly_detection.log'
 )
 
 class NetworkAnomalyDetector:
@@ -29,7 +29,7 @@ class NetworkAnomalyDetector:
         self.redis_conn = None
 
         # Caminhos para modelos e scalers
-        self.base_path = "/home/zrdax/SehenOS/models/"
+        self.base_path = "./models/"
         self.model_path = os.path.join(self.base_path, 'autoencoder_model.h5')
         self.scaler_path = os.path.join(self.base_path, 'scaler.joblib')
         self.pca_path = os.path.join(self.base_path, 'pca.joblib')
@@ -311,7 +311,7 @@ class NetworkAnomalyDetector:
         if anomalies:
             try:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_path = f"/home/zrdax/SehenOS/blackbox/logs/anomalies_{timestamp}.txt"
+                backup_path = f"./logs/anomainfo_{timestamp}.txt"
 
                 with open(backup_path, "w") as file:
                     for anomaly in anomalies:
