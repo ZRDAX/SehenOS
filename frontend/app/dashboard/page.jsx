@@ -3,7 +3,6 @@
 import { AiOutlinePoweroff, AiOutlineReload } from "react-icons/ai";
 import { useState, useEffect } from "react";
 import { Line } from "react-chartjs-2";
-import { io } from "socket.io-client";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,78 +28,58 @@ const API_BASE = "http://10.0.3.230:5000";
 
 export default function Dashboard() {
   const [packetData, setPacketData] = useState([]);
-  const [anomalyData, setAnomalyData] = useState([]);
-  const [packetFiles, setPacketFiles] = useState([]);
-  const [anomalyFiles, setAnomalyFiles] = useState([]);
-  const [packetTimes, setPacketTimes] = useState([]);
-  const [anomalyTimes, setAnomalyTimes] = useState([]);
+  const [anomalyData] = useState([]);
+  const [packetFiles] = useState([]);
+  const [anomalyFiles] = useState([]);
+  const [packetTimes] = useState([]);
+  const [anomalyTimes] = useState([]);
   const [systemInfo, setSystemInfo] = useState(null);
-  const [systemSummary, setSystemSummary] = useState(null);
   const [blacklist] = useState([]);
   const [whitelist] = useState([]);
 
   useEffect(() => {
-    const socket = io({ API_BASE });
-    socket.on("packets", (newPacket) => {
-      setPacketData((prevData) => [...prevData, newPacket.value]);
-      setPacketTimes((prevTimes) => [...prevTimes, newPacket.timestamp]);
-    });
-
-    socket.on("anomalies", (newAnomaly) => {
-      setAnomalyData((prevData) => [...prevData, newAnomaly.value]);
-      setAnomalyTimes((prevTimes) => [...prevTimes, newAnomaly.timestamp]);
-    });
-
     const fetchData = async () => {
       try {
-        const [packetFilesRes, anomalyFilesRes] = await Promise.all([
-          fetch("{API_BASE}/api/list_packet_backup"),
-          fetch("{API_BASE}/api/anomaly_backup"),
-        ]);
+        const packetsRes = await fetch(`${API_BASE}/packets`);
+        if (packetsRes.ok) {
+          const packetsData = await packetsRes.json();
 
-        const packetFilesData = await packetFilesRes.json();
-        const anomalyFilesData = await anomalyFilesRes.json();
-
-        setPacketFiles(Array.isArray(packetFilesData) ? packetFilesData : []);
-        setAnomalyFiles(Array.isArray(anomalyFilesData) ? anomalyFilesData : []);
-
-        const [packetsRes, anomaliesRes] = await Promise.all([
-          fetch("{API_BASE}/api/packets"),
-          fetch("{API_BASE}/api/anomalies"),
-        ]);
-
-        const packetsData = await packetsRes.json();
-        const anomaliesData = await anomaliesRes.json();
-
-        setPacketData(packetsData.map((p) => p.value));
-        setAnomalyData(anomaliesData.map((a) => a.value));
-        setPacketTimes(packetsData.map((p) => p.timestamp));
-        setAnomalyTimes(anomaliesData.map((a) => a.timestamp));
-
-        const [systemInfoRes, systemSummaryRes] = await Promise.all([
-          fetch("{API_BASE}/api/system_info"),
-          fetch("{API_BASE}/api/system_summary"),
-        ]);
-
-        setSystemInfo(await systemInfoRes.json());
-        setSystemSummary(await systemSummaryRes.json());
+          const aggregatedLength = packetsData.reduce((sum, packet) => sum + (packet.length || 0), 0);
+          setPacketData((prevData) => {
+            const newData = [...prevData, aggregatedLength];
+            return newData.length > 15 ? newData.slice(newData.length - 15) : newData;
+          });
+          setPacketTimes((prevTimes) => {
+            const newTimes = [...prevTimes, new Date().toLocaleTimeString()];
+            return newTimes.length > 15 ? newTimes.slice(newTimes.length - 15) : newTimes;
+          });
+        } else {
+          console.error("Erro ao buscar pacotes:", packetsRes.status);
+        }
+  
+        const systemInfoRes = await fetch(`${API_BASE}/system_info`);
+        if (systemInfoRes.ok) {
+          const systemInfoData = await systemInfoRes.json();
+          setSystemInfo(systemInfoData);
+        } else {
+          console.error("Erro ao buscar informações do sistema:", systemInfoRes.status);
+        }
       } catch (error) {
-        console.error("Erro ao buscar dados: ", error);
+        console.error("Erro ao buscar dados:", error);
       }
     };
-
+  
+    const interval = setInterval(fetchData, 5000);
     fetchData();
-
-    return () => {
-      socket.disconnect();
-    };
+  
+    return () => clearInterval(interval);
   }, []);
-
+  
   const packetChartData = {
     labels: packetTimes,
     datasets: [
       {
-        label: "Tráfego de Rede",
+        label: "Tráfego de Pacotes",
         data: packetData,
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         borderColor: "rgba(75, 192, 192, 1)",
@@ -121,7 +100,8 @@ export default function Dashboard() {
       },
     ],
   };
-
+  
+  
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -129,6 +109,16 @@ export default function Dashboard() {
       legend: {
         display: true,
         position: "top",
+      },
+    },
+    scales: {
+      x: {
+        ticks: {
+          maxTicksLimit: 15, 
+          callback: function (value, index, values) {
+            return packetTimes[index];
+          },
+        },
       },
     },
   };
@@ -260,8 +250,7 @@ export default function Dashboard() {
 
 
         {/* Informações do Sistema */}
-        <div className="grid gap-8 md:grid-cols-2 mt-12">
-          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg">
+          <div className="bg-accent-corfundo mt-8 p-6 rounded-lg shadow-lg">
             <h2 className="text-2xl font-semibold text-cortexto mb-4">Informações do Sistema</h2>
             {systemInfo ? (
               <pre className="text-sm bg-black p-4 rounded-lg">{JSON.stringify(systemInfo, null, 2)}</pre>
@@ -270,20 +259,10 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="bg-accent-corfundo p-6 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-semibold text-cortexto mb-4">Resumo de Informações</h2>
-            {systemSummary ? (
-              <pre className="text-sm bg-black p-4 rounded-lg">{JSON.stringify(systemSummary, null, 2)}</pre>
-            ) : (
-              <p>Carregando...</p>
-            )}
-          </div>
-        </div>
-
         {/* Blacklist e Whitelist */}
         <div className="mt-8">
           <h2 className="text-2xl font-semibold text-cortexto mb-4">Blacklist</h2>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col md:flex-row gap-2 mb-4">
             <input
               id="blacklist-ip"
               type="text"
@@ -328,7 +307,7 @@ export default function Dashboard() {
 
           <div className="mt-8">
             <h2 className="text-2xl font-semibold text-cortexto mb-4">Whitelist</h2>
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-col md:flex-row gap-2 mb-4">
               <input
                 id="whitelist-ip"
                 type="text"
@@ -371,21 +350,21 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
-        
+
         {/* Botões de Reiniciar e Desligar */}
         <div className="grid gap-4 grid-cols-2 mt-8">
           <button
             onClick={handleReboot}
             className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-full transition-transform hover:scale-105"
           >
-            <AiOutlineReload className="text-2xl" />
+            <AiOutlineReload className="hidden sm:flex text-2xl" />
             Reiniciar Dispositivo
           </button>
           <button
             onClick={handleShutdown}
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-full transition-transform hover:scale-105"
           >
-            <AiOutlinePoweroff className="text-2xl" />
+            <AiOutlinePoweroff className="hidden sm:flex text-2xl" />
             Desligar Dispositivo
           </button>
         </div>
