@@ -1,12 +1,31 @@
 # requirements.txt
+# API com Flask
 flask
+flask-cors
 Gunicorn
+
+# Captura de pacotes
 scapy
-psycopg2-binary
-psycopg2
-pandas
+
+# Redis
+redis
+
+# Machine Learning e Deep Learning
+#tensorflow já vem instalado a partir do Dockerfile
 scikit-learn
-joblib
 numpy
+pandas
+
+# Configuração e utilitários
+python-dotenv
+psutil
+
+# psycopg2-binary
+# psycopg2
+# joblib
+
+# HTTP Requests
+requests
+
 ipaddress
 python-telegram-bot
