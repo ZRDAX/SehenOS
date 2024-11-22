@@ -24,15 +24,15 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE = "http://10.0.3.230:5000";
+const API_BASE = "http://10.0.1.187:5000";
 
 export default function Dashboard() {
   const [packetData, setPacketData] = useState([]);
-  const [anomalyData] = useState([]);
-  const [packetFiles] = useState([]);
-  const [anomalyFiles] = useState([]);
-  const [packetTimes] = useState([]);
-  const [anomalyTimes] = useState([]);
+  const [anomalyData, setAnomalyData] = useState([]);
+  const [packetFiles, setPacketFiles] = useState([]);
+  const [anomalyFiles, setAnomalyFiles] = useState([]);
+  const [packetTimes, setPacketTimes] = useState([]);
+  const [anomalyTimes, setAnomalyTimes] = useState([]);
   const [systemInfo, setSystemInfo] = useState(null);
   const [blacklist] = useState([]);
   const [whitelist] = useState([]);
@@ -40,23 +40,59 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch packet data
         const packetsRes = await fetch(`${API_BASE}/packets`);
         if (packetsRes.ok) {
           const packetsData = await packetsRes.json();
-
           const aggregatedLength = packetsData.reduce((sum, packet) => sum + (packet.length || 0), 0);
           setPacketData((prevData) => {
             const newData = [...prevData, aggregatedLength];
-            return newData.length > 15 ? newData.slice(newData.length - 15) : newData;
+            return newData.length > 15 ? newData.slice(-15) : newData;
           });
           setPacketTimes((prevTimes) => {
             const newTimes = [...prevTimes, new Date().toLocaleTimeString()];
-            return newTimes.length > 15 ? newTimes.slice(newTimes.length - 15) : newTimes;
+            return newTimes.length > 15 ? newTimes.slice(-15) : newTimes;
           });
         } else {
           console.error("Erro ao buscar pacotes:", packetsRes.status);
         }
-  
+
+        // Fetch anomaly data
+        const anomaliesRes = await fetch(`${API_BASE}/anomalies`);
+        if (anomaliesRes.ok) {
+          const anomaliesData = await anomaliesRes.json();
+          const aggregatedLength = anomaliesData.reduce((sum, anomaly) => sum + (anomaly.length || 0), 0);
+          setAnomalyData((prevData) => {
+            const newData = [...prevData, aggregatedLength];
+            return newData.length > 15 ? newData.slice(-15) : newData;
+          });
+          setAnomalyTimes((prevTimes) => {
+            const newTimes = [...prevTimes, new Date().toLocaleTimeString()];
+            return newTimes.length > 15 ? newTimes.slice(-15) : newTimes;
+          });
+        } else {
+          console.error("Erro ao buscar anomalias:", anomaliesRes.status);
+        }
+
+        // Fetch packet backups
+        const packetFilesRes = await fetch(`${API_BASE}/list_packet_backup`);
+        if (packetFilesRes.ok) {
+          const packetFilesData = await packetFilesRes.json();
+          setPacketFiles(packetFilesData.backups || []);
+        } else {
+          console.error("Erro ao buscar backups de pacotes:", packetFilesRes.status);
+        }
+
+        // Fetch anomaly backups
+        const anomalyFilesRes = await fetch(`${API_BASE}/list_anomaly_backup`);
+        if (anomalyFilesRes.ok) {
+          const anomalyFilesData = await anomalyFilesRes.json();
+          setAnomalyFiles(anomalyFilesData.backups || []);
+        } else {
+          console.error("Erro ao buscar backups de anomalias:", anomalyFilesRes.status);
+        }
+
+        // Fetch system information
         const systemInfoRes = await fetch(`${API_BASE}/system_info`);
         if (systemInfoRes.ok) {
           const systemInfoData = await systemInfoRes.json();
@@ -68,13 +104,13 @@ export default function Dashboard() {
         console.error("Erro ao buscar dados:", error);
       }
     };
-  
+
     const interval = setInterval(fetchData, 5000);
     fetchData();
-  
+
     return () => clearInterval(interval);
   }, []);
-  
+
   const packetChartData = {
     labels: packetTimes,
     datasets: [
@@ -100,8 +136,7 @@ export default function Dashboard() {
       },
     ],
   };
-  
-  
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -114,7 +149,7 @@ export default function Dashboard() {
     scales: {
       x: {
         ticks: {
-          maxTicksLimit: 15, 
+          maxTicksLimit: 15,
           callback: function (value, index, values) {
             return packetTimes[index];
           },
@@ -181,11 +216,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-accent-corfundo to-black text-white">
-
       <main className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl lg:text-5xl font-bold text-center text-cortexto mb-12 mt-12">
-          WIRES
-        </h1>
+        <h1 className="text-4xl lg:text-5xl font-bold text-center text-cortexto mb-12 mt-12">WIRES</h1> 
 
         {/* Gráficos */}
         <div className="grid gap-8 lg:grid-cols-2">
