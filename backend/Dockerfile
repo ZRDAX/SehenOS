@@ -1,7 +1,7 @@
+# Dockerfile para o backend do SehenOS
 FROM python:3.11-slim
 
-# Instalar libhdf5-dev por conta da biblioteca dar erro na hora de instalar hdf5 no TensorFlow
-# Instalar as dependencias nescessarias para instalar o psycopg2
+# Atualizar e instalar dependências necessárias
 RUN apt-get update && apt-get install -y \
         pkg-config \
         libhdf5-dev \
@@ -9,20 +9,29 @@ RUN apt-get update && apt-get install -y \
         python3-dev \
         build-essential \
         postgresql-client \
+        curl \
         && rm -rf /var/lib/apt/lists/*
 
+# Configurar o diretório de trabalho
 WORKDIR /app
 
+# Copiar o arquivo de dependências
 COPY requirements.txt .
 
-RUN pip install -r requirements.txt
-RUN pip install --upgrade pip
-RUN pip install h5py TensorFlow
+# Instalar dependências do Python
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir keras tensorflow
 
+# Copiar o restante do código
 COPY . .
+
+# Configurar variáveis de ambiente para o Flask
+ENV FLASK_APP=server/routes.py
+ENV FLASK_ENV=production
 
 # Expor a porta que o Flask usa
 EXPOSE 5000
 
-ENTRYPOINT ["python3", "app.py"]
-#ENTRYPOINT ["./wait_for_db.sh", "db", "python3", "app.py"]
+# Configurar ponto de entrada para iniciar o servidor
+CMD ["python3", "server/routes.py"]
